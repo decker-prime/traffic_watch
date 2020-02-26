@@ -47,8 +47,6 @@ def the_packet(packet, comm_queue):
         else:
             loopback_buffer.discard(str(packet.layers))
 
-    #ForkedPdb().set_trace()
-
     fields = packet.getlayer(HTTPRequest).fields
     section = fields['Path'].decode('utf-8').split("/")
     
@@ -101,9 +99,8 @@ if __name__ == '__main__':
 
     if args.port != 80 and args.port != 8080:
             # scapy.layers.http (or the older scapy_http) only recognize http
-            # traffic to port 80 or 8080.  So if the user chose something else,
-            # we have to bind the other ports here for the packet inspection to
-            # work (see
+            # traffic to port 80 or 8080.  So if the user chose another port,
+            # we have to bind it here for the packet inspection to work (see
             # https://github.com/invernizzi/scapy-http/blob/master/scapy_http/http.py#L260) 
             bind_layers(TCP,HTTP, dport=args.port) 
             bind_layers(TCP,HTTP, sport=args.port)
