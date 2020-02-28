@@ -7,31 +7,14 @@ import time
 from multiprocessing import Process
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from blessed import Terminal
 from pandas import DataFrame
-from scapy.all import bind_layers, TCP
-from scapy.layers.http import HTTP
 import sniffers
 
 # in seconds
 RECORD_RETENTION_PERIOD = 600
 
-import sys
-import pdb
-
-
-class ForkedPdb(pdb.Pdb):
-    """A Pdb subclass that may be used
-    from a forked multiprocessing child
-
-    """
-
-    def interaction(self, *args, **kwargs):
-        _stdin = sys.stdin
-        try:
-            sys.stdin = open('/dev/stdin')
-            pdb.Pdb.interaction(self, *args, **kwargs)
-        finally:
-            sys.stdin = _stdin
+term = Terminal()
 
 
 def recent_activity(records, threshold_secs=10):
@@ -48,11 +31,13 @@ def recent_activity(records, threshold_secs=10):
             message += f'{section}: {hits} '
             message += "hits, " if hits > 1 else "hit, "
 
-        message += f'{len(records_to_check) / threshold_secs} requests/sec'
+        message += f'{len(records_to_check) / threshold_secs} avg requests/sec'
     else:
-        message = "No recent activity..."
+        message = "No activity in the last 10 seconds..."
 
-    print(message, end='\r', flush=True)
+    # print(message, end='\r', flush=True)
+    with term.location(3, 2):
+        print(message, flush=True)
 
 
 def get_last_n_seconds_records(records, n_secs):
@@ -88,28 +73,32 @@ def record_cleanup(records, retention_period):
         records.popleft()
 
 
-class TrafficAlarm:
-    alarm_engaged = False
+class TrafficAlert:
+    alert_engaged = False
 
-    def traffic_alarm(self, records, alert_threshold, alert_period):
+    def traffic_alert(self, records, alert_threshold, alert_period):
         recs, when = get_last_n_seconds_records(records, alert_period)
         num_records = len(recs)
 
+        msg = None
         if num_records >= alert_threshold:
-            if not self.alarm_engaged:
-                self.alarm_engaged = True
-                msg_time = time.strftime('%a, %d %b %Y %H:%M:%S',
+            if not self.alert_engaged:
+                self.alert_engaged = True
+                msg_time = time.strftime('%a, %d %b %H:%M:%S',
                                          time.localtime(when))
-                print(
-                    f"High traffic generated an alert - hits = {num_records} " +
-                    f"triggered at {msg_time}", flush=True)
-        else:
-            if self.alarm_engaged:
-                self.alarm_engaged = False
-                msg_time = time.strftime('%a, %d %b %Y %H:%M:%S',
-                                         time.localtime(when))
-                print(f"High traffic alert recovered at {msg_time}", flush=True)
 
+                msg = f"High traffic generated an alert - hits =", \
+                      f" {num_records} ", \
+                      f"triggered at {msg_time}"
+        else:
+            if self.alert_engaged:
+                self.alert_engaged = False
+                msg_time = time.strftime('%a, %d %b %H:%M:%S',
+                                         time.localtime(when))
+                msg = f"High traffic alert recovered at {msg_time}"
+        if msg:
+            with term.location(3, 6):
+                print(msg)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -147,10 +136,11 @@ if __name__ == '__main__':
     scheduler.add_job(recent_activity, 'interval', seconds=10,
                       args=(traffic_records,))
 
-    trfc_alarm = TrafficAlarm()
-    scheduler.add_job(trfc_alarm.traffic_alarm, 'interval', seconds=1,
-                      args=(
-                          traffic_records, traffic_alarm_thresh, alarm_period))
+    trfc_alert = TrafficAlert()
+    scheduler.add_job(trfc_alert.traffic_alert, 'interval', seconds=1,
+                      args=(traffic_records,
+                            traffic_alarm_thresh,
+                            alarm_period))
 
     scheduler.add_job(record_cleanup, 'interval', seconds=10,
                       args=(traffic_records, RECORD_RETENTION_PERIOD))
@@ -165,13 +155,12 @@ if __name__ == '__main__':
     snifferProcess.start()
     scheduler.start()
 
-    # counter = 0
-    while True:
-        new_traffic = incoming_data_queue.get()
-        traffic_records.append(new_traffic)
-        # print(new_traffic, end='\r', flush=True)
-        # counter = counter+1
-        # if counter > 4:
-        #    break
+    with term.fullscreen():
+        with term.location(0, 0):
+            print(f"Listening on port {port}...")
+        with term.location(0,5):
+            print("Alerts:")
 
-    # recent_activity(traffic_records)
+        while True:
+            new_traffic = incoming_data_queue.get()
+            traffic_records.append(new_traffic)

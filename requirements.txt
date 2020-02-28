@@ -4,3 +4,4 @@ flask
 psutil
 pandas
 apscheduler
+blessed

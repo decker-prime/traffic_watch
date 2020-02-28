@@ -15,4 +15,4 @@ async def do_requests(num_requests):
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(do_requests(1000))
+    loop.run_until_complete(do_requests(100))
