@@ -25,8 +25,11 @@ Due to the variety of different platforms and their various package installation
 `cd ~/py37env/bin`
 
 `source activate py37env`
+
 Now anything we pip install will be in this environment, and isolated from the rest of the box's python setup.
+
 5. clone or download this project, and extract it in a memorable location, such as `~/py37env/traffic_watch`. `cd` to its main folder, (the one with this README.md in it)
+
 6. Install the dependencies with 
 
 `pip install -r requirements.txt`
