@@ -41,7 +41,7 @@ if __name__ == '__main__':
     The driver for the request sender
     """
     loop = asyncio.get_event_loop()
-    for i in range (100):
+    for i in range (10):
             loop.run_until_complete(do_requests(100))
-            #asyncio.sleep(1)
+            asyncio.sleep(1)
 
