@@ -13,9 +13,9 @@ class ScapySniffer:
     dropping packets once the rate exceeds 20 packets/sec. There just seems to
     be too much overhead involved in the packet inspection.
 
-    Nevertheless, I left it included here as a switch, since it might be of
-    informative use, and to leave the option open of using this
-    established backend instead of my custom one.
+    Nevertheless, I left it included here as an application option, since it
+    might be of informative use later, and to leave the option open of using
+    this established backend in the future
     """
 
     loopback_buffer = set()
@@ -24,6 +24,9 @@ class ScapySniffer:
         """
         This starts the sniffing routine
 
+        @param ip: Optional, the IP address to filter by. If None, will return
+        all messages with matching port numbers that are visible to the network
+        card, regardless of ip.
         @param port_number: The port number to sniff
         @param queue: The queue from the main process, to send back intercepted
         packets
@@ -52,10 +55,11 @@ class ScapySniffer:
               filter=filter_string,
               lfilter=lambda x: x.haslayer(HTTPRequest))
 
-    def get_interfaces(self):
+    @staticmethod
+    def get_interfaces():
         """
-            This returns the box's network interface names, including the loopback
-            name [ commonly 'lo' on linux]
+        This returns the box's network interface names, including the
+        loopback name [ commonly 'lo' on linux]
         @return: list of strings containing the interface names
         """
         return psutil.net_if_addrs()
@@ -76,8 +80,8 @@ class ScapySniffer:
         # goes through this callback twice - once for the 'transmission' on the
         # loopback, and once for the 'reception'. Check that the IP
         # addresses for the src and dst are the same.
-        if packet.getlayer(IP).fields['src'] == packet.getlayer(IP).fields[
-            'dst']:
+        if packet.getlayer(IP).fields['src'] == \
+                packet.getlayer(IP).fields['dst']:
             # using a set and packet hashing to eliminate the duplicates -
             # hash the packet and see if it already exists in our set. If it
             # doesn't, it's the outgoing packet; add it to the set and
