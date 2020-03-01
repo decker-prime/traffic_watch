@@ -85,16 +85,18 @@ Extending compatibility to handle both systems can be done if it's a critical re
 ### Features
 I'd really like to break out the various scheduled jobs, (such as checking every x seconds for some condition and doing output, and every y seconds for some other condition), into a handy plugin arrangement. That way a new job could be easily added to the existing system.
 
-Also, I'd like to separate the display system, (the TUI), from the model code in traffic_watch.py, and pass a "viewmodel" object to each of the callbacks which generates display data. Then when a value is updated, they will write their values to the object, and a view class gets called to update itself. 
+In addition, I'd like to separate the display system, (the TUI), from the model code in traffic_watch.py, and pass a "viewmodel" object to each of the callbacks which generates display data. Then when a value is updated, they will write their values to the object, and a view class gets called to update itself. 
 
 Also, the scheduler would be set to spin off each job in a ThreadPool, and so the only thing the main thread would be doing is updating the display, and there would be as little drag as possible on the jobs doing the calculation, and as little drag as possible on the process sniffing the packets.
+
+It would be interesting to add the ability to listen for different kinds of traffic, in addition to HTTP Requests.
 
 In hindsight, one of the things that ended up taking an asymmetric amount of time compared to the other components was dealing with the scapy library. All in all, it was supposed to make things easier, but between researching it, getting it to run in the test environment, later discovering its profound performance limitations when it comes to HTTP sniffing and then trying to debug that, it consumed probably 14-16 hrs of the entire 46 hrs of dev time. And I ended up writing my own socket sniffer module anyway. The performance on my test box went from ~20 requests/sec to >1,000 requests/sec with the change to my bare socket code. In the end, I added a command line switch to choose which backend to use: either my socket-based one (default) or the scapy one. So if there were ever a feature in scapy someone wanted to use, it's still there.
 
 ### Overall
 I took this on in Python since I thought it would be a nice change from a few years back when I worked on network stuff in C. I thought doing it in Python would take a significantly shorter period of time. Well, it is significantly fewer *lines* than a C program doing the same thing, but I think overall implementation time was similar, and I don't remember having to struggle for performance so much with the compiled language. 
 
-On the other hand, I've been using Python for a few years, and this project certainly took me to new corners of the language libraries.
+On the other hand, I've been using Python for a few years, and this project certainly took me to new corners of the language libraries. 
 
 The program is written to try for maximum clarity for people who may not know the language inside and out. I wrote, for example, a list comprehension that had an early loop breakout, and replaced it with an ordinary set of for statements because it would more clearly convey to maintainers the code's intention.
 
