@@ -6,7 +6,9 @@ from struct import unpack
 
 class BareSocketSniffer:
     """
-    I coded this packet sniffer entirely in the python networking api, to
+    A packet sniffing class.
+
+    This packet sniffer is coded entirely in the python networking api, to
     skip third-party libraries. It runs fast enough on my test hardware to
     capture >1,000 packets per second, and so is the preferred method of
     capture for this app.
