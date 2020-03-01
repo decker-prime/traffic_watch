@@ -14,7 +14,7 @@ class TestTrafficAlert(TestCase):
     is shortened from 120 seconds to 4 seconds so the test suite can run in a
     reasonable time.
     """
-    # period is in seconds. Can be lengthened if desired
+    # period is in seconds. It can be lengthened if desired
     alert_period = 4
     # number of avg packets over which the alert should occur
     alert_threshold = 8

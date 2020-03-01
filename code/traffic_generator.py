@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import random
 
@@ -22,25 +23,37 @@ async def fetch(session, url):
         return await response.text()
 
 
-async def do_requests(num_requests):
+async def do_requests(ip, port, num_requests):
     """
     Take the number of requests and spin them off to the fetching coroutine
+    @param ip: The destination ip
+    @param port: The destination port
     @param num_requests: the number of requests to send
     @return: None
     """
     async with aiohttp.ClientSession() as session:
         for i in range(num_requests):
             html = await fetch(session,
-                               f'http://127.0.0.1:5000/{random.choice(sections)}/index.html{i}')
-            # await asyncio.sleep(0.0001)
+                               f'http://{ip}:{port}/{random.choice(sections)}/index.html{i}')
             print(html)
 
 
 if __name__ == '__main__':
-    """
-    The driver for the request sender
-    """
+    parser = argparse.ArgumentParser(
+        description='This program sends a number of requests to a predefined' +
+                    'server')
+    parser.add_argument('--port', '-p', type=int, help="The port to monitor",
+                        default=5000)
+    parser.add_argument('-ip', type=str,
+                        help="(Default: 127.0.0.1) - the ip address to use" + \
+                             "for the requests.",
+                        default="127.0.0.1")
+
+    args = parser.parse_args()
+    port = args.port
+    ip = args.ip
+
     loop = asyncio.get_event_loop()
     for i in range(10):
-        loop.run_until_complete(do_requests(100))
+        loop.run_until_complete(ip, port, do_requests(100))
         asyncio.sleep(1)
