@@ -4,7 +4,7 @@ from sniffers import scapy_based_sniffer
 
 def get_sniffer(name):
     """
-    A factory of sorts - given a string it hands back the appropriate backend
+    A simple factory - given a string it hands back the appropriate backend
     packet sniffer.
     @param name: one of 'scapy' for the scapy-based backend, and 'socket' for
         bare-bone but much faster hand implementation.

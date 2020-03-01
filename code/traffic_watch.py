@@ -23,7 +23,15 @@ DEFAULT_TRAFFIC_THRESHOLD_PER_SECOND = 20
 term = Terminal()
 
 
-def recent_activity(records, threshold_secs=10):
+def recent_section_activity(records, threshold_secs=10):
+    """
+    This method obtains the most popular website 'sections' in the last 10
+    seconds, (or threshold_secs).
+    @param records: An iterable collection with the request records
+    @param threshold_secs: The number of seconds over which to collect the
+    'most popular section' info.
+    @return: None
+    """
     records_to_check, _ = get_last_n_seconds_records(records, threshold_secs)
 
     popular_list = []
@@ -43,7 +51,7 @@ def recent_activity(records, threshold_secs=10):
     # This is a bit of display logic that should be in a View class/module,
     # and with more time it would be refactored there. In any case, it prints
     # the 5 most popular sections from the last 10 seconds.
-    indent = 3
+    indent = 10
     down_from_terminal_top = 4
     max_lines_to_show = 5
     # this is to force the content clear if there are fewer total popular
@@ -91,17 +99,55 @@ def get_last_n_seconds_records(records, n_secs):
 
 
 def record_cleanup(records, retention_period):
+    """
+    This job is to keep the records deque to a manageable length, so it doesn't
+    grow forever.
+    @param records: A collections.deque containing request records
+    @param retention_period: This is treated like time.time()-retention period.
+    Items older than this are discarded.
+    @return: None
+    """
     now = time.time()
     while len(records) > 0 and records[0]['time'] < now - retention_period:
         records.popleft()
 
 
 class TrafficAlert:
+    """
+    This class handles the alerting for traffic over some threshold.
+    """
+    # This is the alert-in-progress indicator.
     alert_engaged = False
+
+    # This deque contains the notifications that have happened, as well as
+    # the notifications that are happening.
     msg_deque = collections.deque()
 
     def traffic_alert(self, records, alert_threshold, alert_period,
                       per_second=True):
+        """
+        This is the entry method for this Alert. The alert threshold may be
+        specified as either avg messages/sec over the alert period, or total
+        messages over the alert_period. It's a simple multiplication between
+        the two values, but it's easier to be able to think about it from
+        one perspective or the other.
+
+        @param records: A collections.deque containing the request records
+        @param alert_threshold: The threshold of messages above which to set the
+        alert. It has two modes, depending on the state of the "per_second"
+        argument:
+            If per_second is True, this behaves as msgs/sec, which is to say,
+             if set to 20 msg/sec, a 2 minute period would cause the Alert to
+             fire if the average number of messages per second during that time
+             is 20 msgs/sec, (or 2400 total messages)
+            If per_second is False, this behaves as total number of messages
+             during the time period to set the alert, so to get the same
+             behavior as above, one would set this to 2400 messages total.
+        @param alert_period: The time period over which to total the average.
+        @param per_second: Boolean - changes the behavior of the alert_threshold
+        argument, see above.
+        @return: None
+        """
         recs, when = get_last_n_seconds_records(records, alert_period)
         num_records = len(recs)
 
@@ -117,8 +163,8 @@ class TrafficAlert:
                 msg_time = time.strftime('%d %b %H:%M:%S',
                                          time.localtime(when))
 
-                msg = f"High traffic generated an alert - hits =" + \
-                      f" {num_records} " + \
+                msg = f"High traffic generated an alert - hits = " + \
+                      f"{num_records} " + \
                       f"triggered at {msg_time}"
         else:
             if self.alert_engaged:
@@ -148,7 +194,7 @@ class TrafficAlert:
         # height of a big number, and delete the rows that have long fallen
         # off the bottom
         while len(self.msg_deque) > 500:
-            self.msg_deque.remove(0)
+            self.msg_deque.popleft()
 
 
 if __name__ == '__main__':
@@ -186,6 +232,7 @@ if __name__ == '__main__':
                         default='socket')
     args = parser.parse_args()
 
+    # Pull the args into the appropriate variables
     port = args.port
 
     if args.traffic_threshold_total:
@@ -202,40 +249,52 @@ if __name__ == '__main__':
     alarm_period = args.threshold_period * 60  # cmd line arg is in minutes
     backend = args.backend
 
+    # make sure the terminal is tall enough to display the data
     if term.height < 10:
         raise RuntimeError("Please resize your terminal window to be at least" +
                            " 10 rows tall.")
 
+    # a deque that will hold the collected packet information
     traffic_records = collections.deque()
 
+    # The scheduler mechanism. This calls the various background monitoring
+    # jobs in this application
     scheduler = BackgroundScheduler()
-    scheduler.add_job(recent_activity, 'interval', seconds=10,
+    # The 'popular section' job
+    scheduler.add_job(recent_section_activity, 'interval', seconds=10,
                       args=(traffic_records,))
 
     trfc_alert = TrafficAlert()
+    # The Traffic Alert check job
     scheduler.add_job(trfc_alert.traffic_alert, 'interval', seconds=1,
                       args=(traffic_records,
                             traffic_alarm_thresh,
                             alarm_period,
                             thresh_avg_by_sec))
 
+    # The record cleanup job, to control memory usage
     scheduler.add_job(record_cleanup, 'interval', seconds=10,
                       args=(traffic_records, RECORD_RETENTION_PERIOD))
 
     # this is the queue for receiving info from the network-sniffing subprocess
     incoming_data_queue = multiprocessing.Queue()
 
+    # Initialize a sniffer
     sniffer = sniffers.get_sniffer(backend)
+    # Start the sniffer in a new process
     snifferProcess = Process(target=sniffer.run_sniffer,
                              args=(port, incoming_data_queue))
     snifferProcess.daemon = True
     snifferProcess.start()
+
+    # Start the scheduler
     scheduler.start()
 
     # This little bit of View handling sets up the basic Terminal display.
     # On refactoring, this could be moved to another module/class
     # Putting the app inside this 'with' allows the client's terminal to be
-    # restored to its former state on exit.
+    # restored to its former state on exit, even if the process doesn't exit
+    # cleanly.
     with term.fullscreen(), term.cbreak(), term.hidden_cursor():
         with term.location(0, 0):
             print(f"Listening on port {port}...")

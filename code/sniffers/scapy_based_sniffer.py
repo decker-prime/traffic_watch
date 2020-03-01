@@ -7,9 +7,28 @@ from scapy.layers.http import HTTPRequest, HTTP
 
 
 class ScapySniffer:
+    """
+    This class uses the scapy library to sniff packets. On the test hardware
+    I have available, it suffers from some performance issues and begins
+    dropping packets once the rate exceeds 20 packets/sec. There just seems to
+    be too much overhead involved in the packet inspection.
+
+    Nevertheless, I left it included here as a switch, since it might be of
+    informative use, and to leave the option open of using this
+    established backend instead of my custom one.
+    """
+
     loopback_buffer = set()
 
     def run_sniffer(self, port_number, queue):
+        """
+        This starts the sniffing routine
+
+        @param port_number: The port number to sniff
+        @param queue: The queue from the main process, to send back intercepted
+        packets
+        @return: None
+        """
 
         if port_number != 80 and port_number != 8080:
             # scapy.layers.http (or the older scapy_http) only recognize http
@@ -36,6 +55,15 @@ class ScapySniffer:
         return psutil.net_if_addrs()
 
     def the_packet(self, packet, comm_queue):
+        """
+        This is the callback used by scapy's sniff routine on packet capture.
+        It puts the relevant information on the queue to send back to the main
+        process.
+        @param packet: The packet from the scapy sniff routine
+        @param comm_queue: The queue to send the information back to the main
+        process
+        @return: None
+        """
         recv_time = time.time()
 
         # check for loopback - if the packet source is loopback, each packet

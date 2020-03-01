@@ -5,8 +5,15 @@ from struct import unpack
 
 
 class BareSocketSniffer:
+    """
+    I coded this packet sniffer entirely in the python networking api, to
+    skip third-party libraries. It runs fast enough on my test hardware to
+    capture >1,000 packets per second, and so is the preferred method of
+    capture for this app.
+    """
+
     # this regex will be used to determine if the packet inside the tcp packet
-    # is HTTP, (or at least that it appears to be)
+    # appears to be HTTP
     http_payload_re = re.compile(
         r"^(?:OPTIONS|GET|HEAD|POST|PUT|DELETE|TRACE|CONNECT) "
         r"(.+?) "
@@ -14,6 +21,13 @@ class BareSocketSniffer:
     )
 
     def run_sniffer(self, dest_port, queue=None):
+        """
+        This is the entry point for this sniffer.
+
+        @param dest_port: The port we're interested in
+        @param queue: The queue which sends back packet info to the main process
+        @return: None
+        """
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_RAW,
                               socket.IPPROTO_TCP)
@@ -23,7 +37,9 @@ class BareSocketSniffer:
             raise e
 
         while True:
+            # Give me everything
             packet, addr = s.recvfrom(0xffff)
+            # Timestamp it
             recv_time = time.time()
 
             # take first 20 characters for the ip header
