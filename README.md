@@ -4,7 +4,7 @@
 
 Traffic Watch is a straightforward console application that monitors the amount of HTTP traffic to a port on your machine.
 
-This program has been tested and verified to work on Linux, handling ~1000 http requests per second.
+This program has been tested and verified to work on Linux (Ubuntu), handling ~1000 http requests per second.
  
 ## Installation
 1. Traffic watch requires Python 3.7
