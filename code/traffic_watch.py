@@ -9,35 +9,59 @@ from multiprocessing import Process
 from apscheduler.schedulers.background import BackgroundScheduler
 from blessed import Terminal
 from pandas import DataFrame
+
 import sniffers
 
 # in seconds
 RECORD_RETENTION_PERIOD = 600
 
+# This is the default requests / sec the alert at which point he traffic alert
+# activates
+DEFAULT_TRAFFIC_THRESHOLD_PER_SECOND = 20
+
+# this is the handle to the terminal session
 term = Terminal()
 
 
 def recent_activity(records, threshold_secs=10):
     records_to_check, _ = get_last_n_seconds_records(records, threshold_secs)
 
+    popular_list = []
     if len(records_to_check) > 0:
         df = DataFrame(records_to_check)
         vals = df.groupby(['path']).size().sort_values(ascending=False)
 
-        message = "Most popular section"
-        message += "s: " if len(vals) > 1 else ": "
-
         for section, hits in zip(vals.index, vals.values):
-            message += f'{section}: {hits} '
-            message += "hits, " if hits > 1 else "hit, "
+            message = f'{section}: {hits} '
+            message += "hits" if hits > 1 else "hit"
+            popular_list.append(message)
 
-        message += f'{len(records_to_check) / threshold_secs} avg requests/sec'
+        # message += f'{len(records_to_check) / threshold_secs} avg requests/sec'
     else:
-        message = "No activity in the last 10 seconds..."
+        popular_list.append("No activity in the last 10 seconds...")
 
-    # print(message, end='\r', flush=True)
-    with term.location(3, 2):
-        print(message, flush=True)
+    # This is a bit of display logic that should be in a View class/module,
+    # and with more time it would be refactored there. In any case, it prints
+    # the 5 most popular sections from the last 10 seconds.
+    indent = 3
+    down_from_terminal_top = 4
+    max_lines_to_show = 5
+    # this is to force the content clear if there are fewer total popular
+    # sections on this iteration than there were during the last 10s interval
+    while len(popular_list) < max_lines_to_show:
+        popular_list.append(" ")
+    for i, section in enumerate(popular_list):
+        with term.location(indent, down_from_terminal_top + i):
+            # since we're not re-drawing the entire screen on every update,
+            # clear the previous contents of this line
+            print(" " * (term.width - indent))
+        # Have to place the beginning of the print statement at the beginning
+        # of the cleared line, since the insertion point is now at the beginning
+        # of the next line. (Ending the above with a '\r' ignores the indent,
+        # and then you're manually re-adding it, this is cleaner)
+        with term.location(indent, down_from_terminal_top + i):
+            print(section, flush=True)
+        if i > max_lines_to_show - 1: break
 
 
 def get_last_n_seconds_records(records, n_secs):
@@ -53,12 +77,11 @@ def get_last_n_seconds_records(records, n_secs):
             time that was used for t0 or 'now', so calling methods can know at
             what point in time the search backward began.
     """
-    # print(f"{len(records)}")
     records_to_check = []
     now = time.time()
     # This was originally a list comprehension, but since the records are in
-    # reverse time order, breaking the iteration at the time threshold is
-    # easier to read in this format
+    # reverse time order, since we need to break the iteration at a time
+    # threshold, this format is much easier to read.
     for i in reversed(records):
         if i['time'] > now - n_secs:
             records_to_check.append(i)
@@ -75,16 +98,23 @@ def record_cleanup(records, retention_period):
 
 class TrafficAlert:
     alert_engaged = False
+    msg_deque = collections.deque()
 
-    def traffic_alert(self, records, alert_threshold, alert_period):
+    def traffic_alert(self, records, alert_threshold, alert_period,
+                      per_second=True):
         recs, when = get_last_n_seconds_records(records, alert_period)
         num_records = len(recs)
 
         msg = None
-        if num_records >= alert_threshold:
+        if per_second:
+            is_alert = num_records / alert_period >= alert_threshold
+        else:
+            is_alert = num_records >= alert_threshold
+
+        if is_alert:
             if not self.alert_engaged:
                 self.alert_engaged = True
-                msg_time = time.strftime('%a, %d %b %H:%M:%S',
+                msg_time = time.strftime('%d %b %H:%M:%S',
                                          time.localtime(when))
 
                 msg = f"High traffic generated an alert - hits =" + \
@@ -93,12 +123,33 @@ class TrafficAlert:
         else:
             if self.alert_engaged:
                 self.alert_engaged = False
-                msg_time = time.strftime('%a, %d %b %H:%M:%S',
+                msg_time = time.strftime('%d %b %H:%M:%S',
                                          time.localtime(when))
                 msg = f"High traffic alert recovered at {msg_time}"
         if msg:
-            with term.location(3, 6):
-                print(msg)
+            self.msg_deque.append(msg)
+            # This is a bit of display logic that should also be in a View,
+            # not this Model, and with more time it would be refactored
+            # there. In any case, it skips down half the terminal, and prints
+            # the alert deque in reverse order.
+            indent = 3
+            for i, the_msg in enumerate(reversed(self.msg_deque)):
+                # We're not clearing the screen on every data update,
+                # so simply overwrite the last alert with space, and write
+                # over it
+                with term.location(indent, term.height // 2 - 1 + i):
+                    print(" " * (term.width - indent))
+                # Jump to the same space we just overwrote and write the new
+                # line.
+                with term.location(indent, term.height // 2 - 1 + i):
+                    print("- " + the_msg)
+
+        # To prevent the deque from growing forever, assume a max console
+        # height of a big number, and delete the rows that have long fallen
+        # off the bottom
+        while len(self.msg_deque) > 500:
+            self.msg_deque.remove(0)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -106,29 +157,54 @@ if __name__ == '__main__':
                     'interesting HTTP traffic stats on your box')
     parser.add_argument('--port', '-p', type=int, help="The port to monitor",
                         default=8080)
-    parser.add_argument('--traffic_threshold', '-m', type=int,
-                        help="The alert threshold - this number of average"
-                             "packets over the 'threshold_period' period will "
-                             "cause an alert to be displayed to the user.",
-                        default=50)
+    parser.add_argument('--traffic_threshold_per_second', '-ts', type=int,
+                        help="(this option is on by default and defaults to "
+                             "20) The alert threshold - this number "
+                             "of average packets PER SECOND over the "
+                             "'threshold_period' period will cause an alert to "
+                             "be displayed to the user. This option "
+                             "and -tt cannot be used at the same time.")
+    parser.add_argument('--traffic_threshold_total', '-tt', type=int,
+                        help="The alert threshold - this number "
+                             "of TOTAL PACKETS over the "
+                             "'threshold_period' period will cause an alert to "
+                             "be displayed to the user. This option and '-ts' "
+                             "cannot be used at the same time.")
     parser.add_argument('--threshold_period', type=float,
-                        help="The alert threshold period - this the amount of "
-                             "time over which the 'traffic_threshold' is "
-                             "measured. In minutes, defaults to two minutes.",
+                        help="(default: 2 minutes) The alert threshold period "
+                             "- this the amount of time over which the "
+                             "'traffic_threshold' is measured. In minutes,",
                         default=2)
     parser.add_argument('--backend', '-b',
-                        help="which backend packet sniffer to use, choices "
-                             "are 'scapy' which is based on the popular "
-                             "framework, or 'socket' which is hand written "
-                             "but much faster, (but potentially less stable). "
-                             "default: socket",
+                        help="(default: socket) which backend packet sniffer "
+                             "to use, choices are 'scapy' which is based on "
+                             "the popular framework, but has a limited ~15-20 "
+                             "packets/sec listening speed, or 'socket' which "
+                             "is hand written for this and much faster, "
+                             "(but potentially less stable - I haven't had "
+                             "any issues but your mileage may vary). ",
                         default='socket')
     args = parser.parse_args()
 
     port = args.port
-    traffic_alarm_thresh = args.traffic_threshold
+
+    if args.traffic_threshold_total:
+        if args.traffic_threshold_per_second:
+            parser.error("Cannot use options -tt and -ts at the same time")
+        traffic_alarm_thresh = args.traffic_threshold_total
+        thresh_avg_by_sec = False
+    else:
+        traffic_alarm_thresh = args.traffic_threshold_per_second
+        if not traffic_alarm_thresh:
+            traffic_alarm_thresh = DEFAULT_TRAFFIC_THRESHOLD_PER_SECOND
+        thresh_avg_by_sec = True
+
     alarm_period = args.threshold_period * 60  # cmd line arg is in minutes
     backend = args.backend
+
+    if term.height < 10:
+        raise RuntimeError("Please resize your terminal window to be at least" +
+                           " 10 rows tall.")
 
     traffic_records = collections.deque()
 
@@ -140,7 +216,8 @@ if __name__ == '__main__':
     scheduler.add_job(trfc_alert.traffic_alert, 'interval', seconds=1,
                       args=(traffic_records,
                             traffic_alarm_thresh,
-                            alarm_period))
+                            alarm_period,
+                            thresh_avg_by_sec))
 
     scheduler.add_job(record_cleanup, 'interval', seconds=10,
                       args=(traffic_records, RECORD_RETENTION_PERIOD))
@@ -155,12 +232,21 @@ if __name__ == '__main__':
     snifferProcess.start()
     scheduler.start()
 
-    with term.fullscreen():
+    # This little bit of View handling sets up the basic Terminal display.
+    # On refactoring, this could be moved to another module/class
+    # Putting the app inside this 'with' allows the client's terminal to be
+    # restored to its former state on exit.
+    with term.fullscreen(), term.cbreak(), term.hidden_cursor():
         with term.location(0, 0):
             print(f"Listening on port {port}...")
-        with term.location(0,5):
-            print("Alerts:")
+        with term.location(0, 2):
+            print(f"Most Popular Sections:")
+        with term.location(0, term.height // 2 - 2):
+            print("Alerts:  ")
+        with term.location(0, term.height - 2):
+            print("Ctrl-C to exit...")
 
+        # Start the grabbing the incoming data off the queue
         while True:
             new_traffic = incoming_data_queue.get()
             traffic_records.append(new_traffic)
