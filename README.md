@@ -17,11 +17,13 @@ Due to the variety of different platforms and their various package installation
 3. Then create a virtual environment. We'll end up cloning the app into one of the subfolders. Something like:
 
 `mkdir ~/py37env`
+
 `virtualenv ~/py37env`
 
 4. To activate the new environment, cd to the environment's bin folder and activate it:
 
 `cd ~/py37env/bin`
+
 `source activate py37env`
 Now anything we pip install will be in this environment, and isolated from the rest of the box's python setup.
 5. clone or download this project, and extract it in a memorable location, such as `~/py37env/traffic_watch`. `cd` to its main folder, (the one with this README.md in it)
