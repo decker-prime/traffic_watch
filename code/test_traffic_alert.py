@@ -7,7 +7,7 @@ from tqdm import trange
 from traffic_watch import TrafficAlert
 
 
-class Test(TestCase):
+class TestTrafficAlert(TestCase):
     """
     This class is for testing the TrafficAlert functionality. The
     alert_period, (the time over which the alert is doing its average),
