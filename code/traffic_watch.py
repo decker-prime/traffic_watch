@@ -87,8 +87,8 @@ class TrafficAlert:
                 msg_time = time.strftime('%a, %d %b %H:%M:%S',
                                          time.localtime(when))
 
-                msg = f"High traffic generated an alert - hits =", \
-                      f" {num_records} ", \
+                msg = f"High traffic generated an alert - hits =" + \
+                      f" {num_records} " + \
                       f"triggered at {msg_time}"
         else:
             if self.alert_engaged:
