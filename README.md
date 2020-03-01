@@ -3,9 +3,14 @@
 
 ### An HTTP traffic monitor
 
-Traffic watch is a straightforward console application that monitors the amount of HTTP traffic to a port on your machine.
+Traffic watch is a straightforward console application that sniffs network traffic to monitor the amount of HTTP Request traffic to a machine.
 
-This program has been tested and verified to work on Linux, (and presumably should work on MacOS), but it has not been tested in a Windows environment.
+It comes with:
+- It includes a list of the most frequently visited website sections
+- The average request rate for the last 10 seconds
+- An alerting mechanism that displays when traffic exceeds a predefined threshold. 
+
+> Note: This program has been tested and verified to work on Linux, and presumably should work on MacOS. It has not been tested in a Windows environment.
 
 ## Installation
 1. Traffic watch requires Python 3.7
