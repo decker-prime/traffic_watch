@@ -33,6 +33,7 @@ Now anything we pip install will be in this environment, and isolated from the r
 6. Install the dependencies with 
 
 `pip install -r requirements.txt`
+
 7. The code exists in the `traffic_watch/code` subfolder, so `cd` there to run. This is 100% python, so no compilation step is necessary. 
 
 ## Running
