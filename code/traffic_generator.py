@@ -55,5 +55,5 @@ if __name__ == '__main__':
 
     loop = asyncio.get_event_loop()
     for i in range(10):
-        loop.run_until_complete(ip, port, do_requests(100))
+        loop.run_until_complete(do_requests(ip, port, 100))
         asyncio.sleep(1)
