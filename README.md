@@ -2,7 +2,7 @@
 
 ### An HTTP traffic monitor
 
-Traffic watch is a straightforward console application that monitors the amount of HTTP traffic to a port on your machine.
+Traffic Watch is a straightforward console application that monitors the amount of HTTP traffic to a port on your machine.
 
 This program has been tested and verified to work on Linux, handling ~1000 http requests per second.
  
@@ -11,18 +11,23 @@ This program has been tested and verified to work on Linux, handling ~1000 http 
 Due to the variety of different platforms and their various package installation methods, please see the Python [download page](https://www.python.org/downloads/) if you need instructions on its installation. 
 
 2. Build a virtual environment - Using virtualenv we'll create a isolated working environment, so the libraries we install here will not affect any existing python setup on the machine. Once you have python3 installed, install virtualenv using:
+
 `$ sudo pip install virtualenv `
 
 3. Then create a virtual environment. We'll end up cloning the app into one of the subfolders. Something like:
+
 `mkdir ~/py37env`
 `virtualenv ~/py37env`
 
 4. To activate the new environment, cd to the environment's bin folder and activate it:
+
 `cd ~/py37env/bin`
 `source activate py37env`
 Now anything we pip install will be in this environment, and isolated from the rest of the box's python setup.
 5. clone or download this project, and extract it in a memorable location, such as `~/py37env/traffic_watch`. `cd` to its main folder, (the one with this README.md in it)
-6. Install the dependencies with `pip install -r requirements.txt`
+6. Install the dependencies with 
+
+`pip install -r requirements.txt`
 7. The code exists in the `traffic_watch/code` subfolder, so `cd` there to run. This is 100% python, so no compilation step is necessary. 
 
 ## Running
