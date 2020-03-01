@@ -20,7 +20,7 @@ class ScapySniffer:
 
     loopback_buffer = set()
 
-    def run_sniffer(self, port_number, queue):
+    def run_sniffer(self, ip, port_number, queue):
         """
         This starts the sniffing routine
 
@@ -39,11 +39,17 @@ class ScapySniffer:
             bind_layers(TCP, HTTP, sport=port_number)
 
         interfaces = self.get_interfaces()
+
+        if not ip:
+            filter_string = f"dst port {port_number}"
+        else:
+            filter_string = f"dst port {port_number} and host {ip}"
+
         # encase the "the_packet" callback in a partial function to pass
         # along the queue instance.
         sniff(prn=partial(self.the_packet, comm_queue=queue), iface=interfaces,
               store=-1,
-              filter=f"dst port {port_number}",
+              filter=filter_string,
               lfilter=lambda x: x.haslayer(HTTPRequest))
 
     def get_interfaces(self):
@@ -84,11 +90,14 @@ class ScapySniffer:
                 self.loopback_buffer.discard(str(packet.layers))
 
         fields = packet.getlayer(HTTPRequest).fields
-        section = fields['Path'].decode('utf-8').split("/")
+        section = fields['Path'].decode('utf-8').split('/')
 
-        if len(section) > -1:
-            section = f'/{section[0]}'
+        if len(section) > 2:
+            # this is the form /foo/index.html, so the split looks like
+            # ['', 'foo', 'index.html']
+            section = f'/{section[1]}'
         else:
+            # this is the form /index.html
             section = '/'
 
         comm_queue.put({'time': recv_time,

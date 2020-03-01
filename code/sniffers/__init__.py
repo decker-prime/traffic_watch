@@ -10,10 +10,10 @@ def get_sniffer(name):
         bare-bone but much faster hand implementation.
     @return: a packet sniffer
     """
-    if name is "scapy":
+    if name == "scapy":
         return scapy_based_sniffer.ScapySniffer()
-    elif name is "socket":
+    elif name == "socket":
         return bare_socket_based_sniffer.BareSocketSniffer()
     else:
-        raise NotImplementedError("Unknown backend, please choose 'scapy' or " +
-                                  "'socket'")
+        raise NotImplementedError(f"Unknown backend, {name}, please choose"
+                                  " 'scapy' or 'socket'")

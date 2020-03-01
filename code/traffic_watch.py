@@ -4,6 +4,7 @@ import argparse
 import collections
 import multiprocessing
 import time
+from threading import Lock
 from multiprocessing import Process
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -19,9 +20,11 @@ RECORD_RETENTION_PERIOD = 600
 # activates
 DEFAULT_TRAFFIC_THRESHOLD_PER_SECOND = 20
 
-# this is the handle to the terminal session
+# This is the handle to the terminal session
 term = Terminal()
 
+# This lock is to prevent issues with the accessing the records data
+lock = Lock()
 
 def recent_section_activity(records, threshold_secs=10):
     """
@@ -44,15 +47,14 @@ def recent_section_activity(records, threshold_secs=10):
             message += "hits" if hits > 1 else "hit"
             popular_list.append(message)
 
-        # message += f'{len(records_to_check) / threshold_secs} avg requests/sec'
     else:
         popular_list.append("No activity in the last 10 seconds...")
 
     # This is a bit of display logic that should be in a View class/module,
     # and with more time it would be refactored there. In any case, it prints
     # the 5 most popular sections from the last 10 seconds.
-    indent = 10
-    down_from_terminal_top = 4
+    indent = 22
+    down_from_terminal_top = 3
     max_lines_to_show = 5
     # this is to force the content clear if there are fewer total popular
     # sections on this iteration than there were during the last 10s interval
@@ -69,7 +71,14 @@ def recent_section_activity(records, threshold_secs=10):
         # and then you're manually re-adding it, this is cleaner)
         with term.location(indent, down_from_terminal_top + i):
             print(section, flush=True)
-        if i > max_lines_to_show - 1: break
+        if i > max_lines_to_show - 1:
+            break
+    with term.location(40, 0):
+        print("" * 40)
+    with term.location(40, 0):
+        print(f'{len(records_to_check) / float(threshold_secs)} req/sec avg, '
+              'last 10 seconds')
+
 
 
 def get_last_n_seconds_records(records, n_secs):
@@ -90,11 +99,12 @@ def get_last_n_seconds_records(records, n_secs):
     # This was originally a list comprehension, but since the records are in
     # reverse time order, since we need to break the iteration at a time
     # threshold, this format is much easier to read.
-    for i in reversed(records):
-        if i['time'] > now - n_secs:
-            records_to_check.append(i)
-        else:
-            break
+    with lock:
+        for i in reversed(records):
+            if i['time'] > now - n_secs:
+                records_to_check.append(i)
+            else:
+                break
     return records_to_check, now
 
 
@@ -108,8 +118,9 @@ def record_cleanup(records, retention_period):
     @return: None
     """
     now = time.time()
-    while len(records) > 0 and records[0]['time'] < now - retention_period:
-        records.popleft()
+    with lock:
+        while len(records) > 0 and records[0]['time'] < now - retention_period:
+            records.popleft()
 
 
 class TrafficAlert:
@@ -203,6 +214,12 @@ if __name__ == '__main__':
                     'interesting HTTP traffic stats on your box')
     parser.add_argument('--port', '-p', type=int, help="The port to monitor",
                         default=8080)
+    parser.add_argument('-ip',  type=str, help="The ip to monitor. If "
+                        "not provided, the sniffer will intercept all traffic "
+                        "to any ip with the matching port number. Depending on "
+                        "your network setup, ie: public wifi vs. wired switch "
+                        "connection, this may or may not be what you want."
+                        )
     parser.add_argument('--traffic_threshold_per_second', '-ts', type=int,
                         help="(this option is on by default and defaults to "
                              "20) The alert threshold - this number "
@@ -234,6 +251,7 @@ if __name__ == '__main__':
 
     # Pull the args into the appropriate variables
     port = args.port
+    ip = args.ip
 
     if args.traffic_threshold_total:
         if args.traffic_threshold_per_second:
@@ -283,7 +301,7 @@ if __name__ == '__main__':
     sniffer = sniffers.get_sniffer(backend)
     # Start the sniffer in a new process
     snifferProcess = Process(target=sniffer.run_sniffer,
-                             args=(port, incoming_data_queue))
+                             args=(ip, port, incoming_data_queue))
     snifferProcess.daemon = True
     snifferProcess.start()
 
@@ -308,4 +326,5 @@ if __name__ == '__main__':
         # Start the grabbing the incoming data off the queue
         while True:
             new_traffic = incoming_data_queue.get()
-            traffic_records.append(new_traffic)
+            with lock:
+                traffic_records.append(new_traffic)

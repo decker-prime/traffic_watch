@@ -20,11 +20,14 @@ class BareSocketSniffer:
         r"HTTP/\d\.\d"
     )
 
-    def run_sniffer(self, dest_port, queue=None):
+    def run_sniffer(self, ip, dest_port, queue=None):
         """
         This is the entry point for this sniffer.
 
         @param dest_port: The port we're interested in
+        @param ip: The destination ip to listen for. If this is 'None', all
+        messages to to any ips will be logged, (so long as the port number
+        matches)
         @param queue: The queue which sends back packet info to the main process
         @return: None
         """
@@ -69,6 +72,10 @@ class BareSocketSniffer:
 
             s_addr = socket.inet_ntoa(ipheader_fields[8])
             d_addr = socket.inet_ntoa(ipheader_fields[9])
+            # toss packets with ip destinations not matching our filter, if a
+            # filter was passed...
+            if ip and ip != d_addr:
+                continue
 
             tcp_header = packet[ipheader_length:ipheader_length + 20]
 
