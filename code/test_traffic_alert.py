@@ -28,6 +28,7 @@ class TestTrafficAlert(TestCase):
         test_traffic = collections.deque()
         alert.traffic_alert(test_traffic, self.alert_threshold,
                             self.alert_period)
+
         self.assertFalse(alert.alert_engaged)
 
     def test_traffic_alert_below_threshold(self):
