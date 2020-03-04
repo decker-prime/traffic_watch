@@ -118,7 +118,7 @@ def recent_section_activity(records, threshold_secs=10):
             message += "hits" if hits > 1 else "hit"
             popular_list.append(message)
     else:
-        popular_list.append("No activity in the last 10 seconds...")
+        popular_list.append("No activity")
     return popular_list
 
 
@@ -198,6 +198,7 @@ def display(id, display_method):
 
 traffic_alert = TrafficAlert()
 
+
 # This section hooks the various profiling functions to their display
 # counterparts. We could have just marked the functions directly, but then
 # unit tests become a problem, because calling the function then requires
@@ -216,7 +217,13 @@ def display_current_rate(records):
 
 
 @display("VW_SA_1", ViewManager.update_section_activity)
-def display_recent_section_activity(records, threshold_secs=10):
+def display_recent_section_activity1(records, threshold_secs=10):
+    return recent_section_activity(records, threshold_secs)
+
+
+# we'll also add a "recent section" monitor tally of the last 10 mins
+@display("VW_SA_2", ViewManager.update_section_activity)
+def display_recent_section_activity2(records, threshold_secs=600):
     return recent_section_activity(records, threshold_secs)
 
 
@@ -301,7 +308,9 @@ if __name__ == '__main__':
     # jobs in this application
     scheduler = BackgroundScheduler()
     # The 'popular section' job
-    scheduler.add_job(display_recent_section_activity, 'interval', seconds=10,
+    scheduler.add_job(display_recent_section_activity1, 'interval', seconds=10,
+                      args=(traffic_records,))
+    scheduler.add_job(display_recent_section_activity2, 'interval', seconds=10,
                       args=(traffic_records,))
 
     # The Traffic Alert check job
@@ -343,7 +352,7 @@ if __name__ == '__main__':
         viewProcess = Process(target=view_manager.start_view_update_loop)
         viewProcess.start()
 
-        # Start the grabbing the incoming data off the queue
+        # Start recording captured traffic to traffic_records
         while True:
             new_traffic = incoming_data_queue.get()
             with lock:

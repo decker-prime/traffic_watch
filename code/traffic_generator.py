@@ -65,11 +65,10 @@ if __name__ == '__main__':
         loop.run_until_complete(do_requests(ip, port, 20, quiet))
         time.sleep(1)
     # then increase the rate to 100 per second for 20 seconds
-    for i in range(24):
+    for i in range(20):
         loop.run_until_complete(do_requests(ip, port, 100, quiet))
         time.sleep(1)
     # then reduce the rate back to 20. The high traffic warning should disappear
-    # after 30 seconds
     for i in range(60):
         loop.run_until_complete(do_requests(ip, port, 20, quiet))
         time.sleep(1)
