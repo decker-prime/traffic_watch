@@ -87,7 +87,7 @@ To run this test, make sure the python environment is still activated, and flask
 
 >Note: To keep test times reasonable, the alert time threshold is set to one minute instead of two. 
 
-This test will send requests at a rate of 20 requests/sec for one minute. Then that rate is increased to 100 requests/sec for 20 seconds. This will cause an alert. After the 20 seconds have passed, the request rate will again drop to 20 req/sec for 30 seconds. The high traffic alert will remain engaged for (roughly) 1 minute and 20 seconds, and then recover.
+This test will send requests at a rate of 20 requests/sec for one minute. Then that rate is increased to 100 requests/sec for 20 seconds. This will cause an alert. After the 20 seconds have passed, the request rate will again drop to 20 req/sec for 30 seconds. The high traffic alert will remain engaged for (roughly) 1 minute and 22 seconds, and then recover.
 
 Subsequently pressing Ctrl-C ends the test, and should kill the flask server that was started at the beginning of the script.
 
