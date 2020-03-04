@@ -1,10 +1,11 @@
+
 # Traffic Watch
 
 ### An HTTP traffic monitor
 
-Traffic Watch is a straightforward console application that monitors the amount of HTTP traffic to a port on your machine.
+Traffic Watch is a straightforward console application that monitors the amount of HTTP traffic to a port on a machine.
 
-This program has been tested and verified to work on Linux (Ubuntu), handling ~1000 http requests per second.
+This program has been tested and verified to work on Linux (Ubuntu and Mint test platforms tested, presumably it will run on other flavors as well). 
  
 ## Installation
 1. Traffic watch requires Python 3.7
@@ -70,34 +71,52 @@ There is very simple traffic generator, [traffic_generator.py](https://github.co
 `$ python traffic_generator.py`
 
 ## Tests 
-As requested, there is a unit test suite to exercise the alerting logic in [test_traffic_alert.py](https://github.com/decker-prime/traffic_watch/blob/master/code/test_traffic_alert.py "test_traffic_alert.py").  This runs with the python unittest framework, which can be executed with:
+There are two different tests included, one functional test and a unit test suite.
+
+### Unit Test
+The unit test suite to exercise the alerting logic is in [test_traffic_alert.py](https://github.com/decker-prime/traffic_watch/blob/master/code/test_traffic_alert.py "test_traffic_alert.py").  This runs with the python 'unittest' framework, which can be executed with:
 
 `$ python -m unittest test_traffic_alert.py`
 
+### Functional Test
+The functional test is in [functional_test_runner.sh](https://github.com/decker-prime/traffic_watch/blob/master/code/functional_test_runner.sh). This test starts a dummy webserver and traffic generator, then loads the traffic watch application for monitoring. 
+
+To run this test, make sure the python environment is still activated, and flask isn't already running. Then run this test via:
+
+`$ bash -i functional_test_runner.sh`
+
+>Note: To keep test times reasonable, the alert time threshold is set to one minute instead of two. 
+
+This test will send requests at a rate of 20 requests/sec for one minute. Then that rate is increased to 100 requests/sec for 20 seconds. This will cause an alert. After the 20 seconds have passed, the request rate will again drop to 20 req/sec for 30 seconds. The high traffic alert will remain engaged for (roughly) 1 minute and 22 seconds, and then recover.
+
+Subsequently pressing Ctrl-C ends the test, and should kill the flask server that was started at the beginning of the script.
+
 ## Improvements
 
-### Compatibility Notes
-Due to a lack of access to a MacOS machine, I learned one day before turn-in that MacOS handles sockets significantly differently from the existing unix socket design herein:
->"FreeBSD takes another approach. It *never* passes TCP or UDP packets to raw sockets. Such packets need to be read directly at the datalink layer by using libraries like libpcap or the bpf API. It also *never* passes any fragmented datagram. Each datagram has to be completeley reassembled before it is passed to a raw socket" - https://sock-raw.org/papers/sock_raw
+### Compatibility 
+At the present time, the socket capture code code works well for linux. Given the opportunity, I'd like to expand it using the pcap libraries to work on MacOS. I don't presently have access to a MacOS machine, so it would take some doing.
+ 
+As you're aware, MacOS handles raw sockets significantly differently from the existing unix/linux design:
+>"[FreeBSD] *never* passes TCP or UDP packets to raw sockets. Such packets need to be read directly at the datalink layer by using libraries like libpcap or the bpf API. It also *never* passes any fragmented datagram. Each datagram has to be completeley reassembled before it is passed to a raw socket" - https://sock-raw.org/papers/sock_raw
 
-Extending compatibility to handle both systems can be done if it's a critical requirement, but it would delay delivery by at least a couple days, and I'd need a test environment. 
+OS availability issue aside, it would be straightforward to add that functionality.
 
 ### Features
-I'd really like to break out the various scheduled jobs, (such as checking every x seconds for some condition and doing output, and every y seconds for some other condition), into a handy plugin arrangement. That way a new job could be easily added to the existing system.
+For design features and changes, I'd really like to break out the various scheduled jobs, (such as checking every x seconds for some condition and doing output, and every y seconds for some other condition), into a plugin arrangement. That way a new job could be easily added to the existing system. Further refinement of the view (as in model/view/controller) code would also be beneficial. 
 
-In addition, I'd like to separate the display system, (the TUI), from the model code in traffic_watch.py, and pass a "viewmodel" object to each of the callbacks which generates display data. Then when a value is updated, they will write their values to the object, and a view class gets called to update itself. 
-
-Also, the scheduler would be set to spin off each job in a ThreadPool, and so the only thing the main thread would be doing is updating the display, and there would be as little drag as possible on the jobs doing the calculation, and as little drag as possible on the process sniffing the packets.
+As far as runtime features go, I'd love to expand it to do more sophisticated trending analysis... to see if certain parts of the website are more popular than others at given times of the day by matching the source IPs with a geographic search, etc.
 
 It would be interesting to add the ability to listen for different kinds of traffic, in addition to HTTP Requests.
 
-In hindsight, one of the things that ended up taking an asymmetric amount of time compared to the other components was dealing with the scapy library. All in all, it was supposed to make things easier, but between researching it, getting it to run in the test environment, later discovering its profound performance limitations when it comes to HTTP sniffing and then trying to debug that, it consumed probably 14-16 hrs of the entire 46 hrs of dev time. And I ended up writing my own socket sniffer module anyway. The performance on my test box went from ~20 requests/sec to >1,000 requests/sec with the change to my bare socket code. In the end, I added a command line switch to choose which backend to use: either my socket-based one (default) or the scapy one. So if there were ever a feature in scapy someone wanted to use, it's still there.
+### Challenges
+
+One of the things that ended up taking a ridiculously asymmetric amount of time compared to the other components was dealing with the scapy library. It is allegedly supposed to make things easier, but between researching it, getting it to run in the test environment, later discovering its profound performance limitations when it comes to HTTP sniffing, and then trying to debug that thinking it was my fault, consumed probably 12-14 hrs of the entire 46 hrs of dev time.
+
+ And I ended up writing my own socket sniffer module anyway. The performance on my test box went from ~20 requests/sec to >1,000 requests/sec with the change to my simple raw socket code. In the end, I added a command line switch to choose which backend to use: either my socket-based one (default) or the scapy one. So if there were ever a feature in scapy someone wanted to use, it's still there.
 
 ### Overall
-I took this on in Python since I thought it would be a nice change from a few years back when I worked on network stuff in C. I thought doing it in Python would take a significantly shorter period of time. Well, it is significantly fewer *lines* than a C program doing the same thing, but I think overall implementation time was similar, and I don't remember having to struggle for performance so much with the compiled language. 
+Some years ago I worked on a proxy project that was written in C, and so I chose to do this project in Python because I thought it would take significantly less time, and I figured I'd learn something. Well, it did turn out to be significantly fewer *lines* than a C program doing the same thing. But the overall implementation time was not profoundly shorter. Python enables some issues to become a breeze - running code in other threads or subprocesses, multiprocess communication, maintenance ease, etc. but when dependent upon performance, it still seems many times slower than compiled C.
 
-On the other hand, I've been using Python for a few years, and this project certainly took me to new corners of the language libraries. 
+On the other hand, I've been using Python for three years, and this project took me to new corners of the language libraries, which was interesting.
 
-The program is written to try for maximum clarity for people who may not know the language inside and out. I wrote, for example, a list comprehension that had an early loop breakout, and replaced it with an ordinary set of for statements because it would more clearly convey to maintainers the code's intention.
-
-Thanks for your time, and I appreciate your consideration.
+I'd like to thank you for your time, and I appreciate your feedback. This program works right out of the box on my test machines, so if there are issues running it, please reach out. Thanks again for your consideration.
