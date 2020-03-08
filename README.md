@@ -119,4 +119,4 @@ Some years ago I worked on a proxy project that was written in C, and so I chose
 
 On the other hand, I've been using Python for three years, and this project took me to new corners of the language libraries, which was interesting.
 
-I'd like to thank you for your time, and I appreciate your feedback. This program works right out of the box on my test machines, so if there are issues running it, please reach out. Thanks again for your consideration.
+This program works right out of the box on my test machines, so if there are issues running it, please reach out. 
